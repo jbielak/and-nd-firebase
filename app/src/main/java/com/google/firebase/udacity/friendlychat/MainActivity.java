@@ -24,6 +24,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -197,6 +198,7 @@ public class MainActivity extends AppCompatActivity {
         Map<String, Object> defaultConfigMap = new HashMap<>();
         defaultConfigMap.put(FRIENDLY_MSG_LENGTH_KEY, DEFAULT_MSG_LENGTH_LIMIT);
         mFirebaseRemoteConfig.setDefaults(defaultConfigMap);
+        fetchConfig();
     }
 
     @Override
@@ -304,5 +306,34 @@ public class MainActivity extends AppCompatActivity {
             mMessagesDatabaseReference.removeEventListener(mChildEventListener);
             mChildEventListener = null;
         }
+    }
+
+    public void fetchConfig() {
+        long cacheExpiration = 3600;
+
+        if (mFirebaseRemoteConfig.getInfo().getConfigSettings().isDeveloperModeEnabled()) {
+            cacheExpiration = 0;
+        }
+        mFirebaseRemoteConfig.fetch(cacheExpiration)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        mFirebaseRemoteConfig.activateFetched();
+                        applyRetrievedLengthLimit();
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.w(TAG, "Errpr fetching config", e);
+                        applyRetrievedLengthLimit();
+                    }
+                });
+    }
+
+    private void applyRetrievedLengthLimit() {
+        Long friendlyMsgLength = mFirebaseRemoteConfig.getLong(FRIENDLY_MSG_LENGTH_KEY);
+        mMessageEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(friendlyMsgLength.intValue())});
+        Log.d(TAG, FRIENDLY_MSG_LENGTH_KEY + " = " + friendlyMsgLength);
     }
 }
